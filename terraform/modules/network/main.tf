@@ -6,6 +6,7 @@ variable "resource_group_name" { type = string }
 variable "location" { type = string }
 variable "address_space" { type = string }
 variable "admin_cidrs" { type = list(string) }
+variable "web_cidrs" { type = list(string) }
 variable "tags" { type = map(string) }
 
 locals {
@@ -62,9 +63,9 @@ resource "azurerm_network_security_group" "nodes" {
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
-    source_address_prefix      = "Internet"
+    source_address_prefixes    = var.web_cidrs
     source_port_range          = "*"
-    destination_address_prefix = "*"
+    destination_address_prefix = local.subnet_prefix
     destination_port_ranges    = ["80", "443"]
   }
   security_rule {

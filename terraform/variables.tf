@@ -29,6 +29,12 @@ variable "admin_cidrs" {
   }
 }
 
+variable "web_cidrs" {
+  description = "Public IP ranges that may open the websites (80/443). Empty = only admin_cidrs (closed lab). Set [\"0.0.0.0/0\"] to go public."
+  type        = list(string)
+  default     = []
+}
+
 variable "admin_username" {
   type    = string
   default = "azureops"

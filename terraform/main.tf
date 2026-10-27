@@ -30,6 +30,7 @@ module "network" {
   location            = azurerm_resource_group.this.location
   address_space       = var.address_space
   admin_cidrs         = var.admin_cidrs
+  web_cidrs           = length(var.web_cidrs) > 0 ? var.web_cidrs : var.admin_cidrs
   tags                = local.tags
 }
 

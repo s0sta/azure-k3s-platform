@@ -14,7 +14,7 @@ change through checks, a reviewed plan and an approved apply — logged in to Az
 | Area | How |
 |---|---|
 | Infrastructure as Code | Terraform (azurerm 4), two modules (network, node), remote state in Azure Storage with Entra ID auth |
-| Networking | VNet + NSG (deny by default), NAT gateway egress, Standard Load Balancer for 80/443, admin access only from your IP |
+| Networking | VNet + NSG (deny by default), NAT gateway egress, Standard Load Balancer for 80/443 (closed to the world until you set `web_cidrs`), admin access only from your IP |
 | Identity and secrets | GitHub OIDC (workload identity federation), VM managed identities, k3s token in Key Vault |
 | Configuration management | Ansible roles (hardening, k3s, platform), `ansible-lint` production profile |
 | Hardening | sshd, sysctl, auditd, fail2ban, unattended upgrades; k3s secrets encryption, PSA, audit log, WireGuard pod network |
