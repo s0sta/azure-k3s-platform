@@ -1,0 +1,4 @@
+resource_group_name  = "rg-tfstate"
+storage_account_name = "sttfstateXXXXX"
+container_name       = "tfstate"
+key                  = "azure-k3s-platform/lab.tfstate"

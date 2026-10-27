@@ -1,0 +1,107 @@
+# Terraform for the Azure platform
+#   pull request : fmt → validate → tflint → Trivy (IaC) → plan (comment on the PR)
+#   main         : plan → apply, only after approval of the "production" environment
+# Azure login with OIDC (workload identity federation): no client secret is stored anywhere.
+name: terraform
+
+on:
+  pull_request:
+    paths: ["terraform/**", ".github/workflows/terraform.yml"]
+  push:
+    branches: [main]
+    paths: ["terraform/**", ".github/workflows/terraform.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-state      # never two runs against the same state
+  cancel-in-progress: false
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+  ARM_USE_AZUREAD: "true"
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
+  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+defaults:
+  run: { working-directory: terraform }
+
+jobs:
+  checks:
+    name: fmt, validate, tflint, Trivy
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.9.8 }
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - uses: terraform-linters/setup-tflint@v4
+      - run: tflint --init && tflint --recursive --format compact
+      - name: Trivy IaC scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with: { scan-type: config, scan-ref: terraform, severity: "HIGH,CRITICAL", exit-code: "1", trivyignores: terraform/.trivyignore }
+
+  plan:
+    name: Plan
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.9.8 }
+      - name: Init with the remote state
+        run: |
+          cat > backend.hcl <<HCL
+          resource_group_name  = "${{ vars.TFSTATE_RG }}"
+          storage_account_name = "${{ vars.TFSTATE_ACCOUNT }}"
+          container_name       = "tfstate"
+          key                  = "azure-k3s-platform/lab.tfstate"
+          HCL
+          terraform init -backend-config=backend.hcl
+      - id: plan
+        run: terraform plan -out=tfplan -no-color -lock-timeout=5m | tee plan.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: tfplan, path: "terraform/tfplan", retention-days: 5 }
+      - name: Comment the plan on the pull request
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('terraform/plan.txt', 'utf8');
+            const summary = (plan.match(/Plan: .*|No changes\..*/) || ['(see the log)'])[0];
+            const body = `### Terraform plan\n**${summary}**\n<details><summary>Full plan</summary>\n\n\`\`\`\n${plan.slice(-60000)}\n\`\`\`\n</details>`;
+            await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+
+  apply:
+    name: Apply (needs approval)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: production        # required reviewers are set on this environment
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.9.8 }
+      - uses: actions/download-artifact@v4
+        with: { name: tfplan, path: terraform }
+      - run: |
+          cat > backend.hcl <<HCL
+          resource_group_name  = "${{ vars.TFSTATE_RG }}"
+          storage_account_name = "${{ vars.TFSTATE_ACCOUNT }}"
+          container_name       = "tfstate"
+          key                  = "azure-k3s-platform/lab.tfstate"
+          HCL
+          terraform init -backend-config=backend.hcl
+          terraform apply -lock-timeout=5m tfplan

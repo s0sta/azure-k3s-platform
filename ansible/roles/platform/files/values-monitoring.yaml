@@ -1,0 +1,34 @@
+# kube-prometheus-stack: Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics
+grafana:
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence: { enabled: true, size: 5Gi }
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki-gateway.logging.svc
+      access: proxy
+  grafana.ini:
+    users: { allow_sign_up: false }
+    auth.anonymous: { enabled: false }
+    security: { cookie_secure: true, disable_gravatar: true }
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    resources: { requests: { cpu: 200m, memory: 512Mi }, limits: { memory: 1536Mi } }
+    ruleSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 10Gi } } }
+alertmanager:
+  alertmanagerSpec:
+    resources: { requests: { cpu: 20m, memory: 64Mi }, limits: { memory: 128Mi } }
+# k3s runs these inside the k3s process, so the default scrape targets do not exist
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }
+kubeEtcd: { enabled: false }

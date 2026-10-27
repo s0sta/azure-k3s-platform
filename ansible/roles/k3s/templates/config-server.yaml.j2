@@ -1,0 +1,25 @@
+# Managed by Ansible — k3s server
+write-kubeconfig-mode: "0600"
+token-file: {{ k3s_token_file }}
+node-ip: {{ private_ip }}
+advertise-address: {{ private_ip }}
+tls-san:
+  - {{ k3s_api_public }}
+  - {{ private_ip }}
+secrets-encryption: true
+protect-kernel-defaults: true
+flannel-backend: wireguard-native        # encrypt pod traffic between nodes
+node-taint:
+  - "node-role.kubernetes.io/control-plane:NoSchedule"
+kube-apiserver-arg:
+  - "admission-control-config-file=/etc/rancher/k3s/psa.yaml"
+  - "audit-policy-file=/etc/rancher/k3s/audit-policy.yaml"
+  - "audit-log-path=/var/log/k3s-audit.log"
+  - "audit-log-maxage=30"
+  - "audit-log-maxbackup=10"
+  - "audit-log-maxsize=100"
+  - "anonymous-auth=false"
+  - "profiling=false"
+kube-controller-manager-arg: ["profiling=false", "terminated-pod-gc-threshold=50"]
+kube-scheduler-arg: ["profiling=false"]
+kubelet-arg: ["streaming-connection-idle-timeout=5m", "make-iptables-util-chains=true"]

@@ -1,0 +1,20 @@
+---
+# k3s
+k3s_version: v1.31.4+k3s1
+k3s_install_url: https://get.k3s.io
+k3s_server_ip: "{{ hostvars[groups['k3s_server'][0]].private_ip }}"
+k3s_api_public: "{{ hostvars[groups['k3s_server'][0]].ansible_host }}"
+
+# hardening
+ssh_allow_users: ["{{ ansible_user }}"]
+fail2ban_bantime: 1h
+fail2ban_maxretry: 5
+unattended_reboot: false
+
+# platform (Helm charts, pinned)
+charts:
+  cert_manager: { repo: https://charts.jetstack.io, name: cert-manager, version: v1.16.1 }
+  kube_prometheus_stack: { repo: https://prometheus-community.github.io/helm-charts, name: kube-prometheus-stack, version: 65.5.0 }
+  loki: { repo: https://grafana.github.io/helm-charts, name: loki, version: 6.18.0 }
+  fluent_bit: { repo: https://fluent.github.io/helm-charts, name: fluent-bit, version: 0.47.10 }
+grafana_admin_secret: grafana-admin   # created from Key Vault, never written to Git
