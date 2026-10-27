@@ -1,0 +1,8 @@
+# Managed by Ansible — k3s agent
+server: https://{{ k3s_server_ip }}:6443
+token-file: {{ k3s_token_file }}
+node-ip: {{ private_ip }}
+protect-kernel-defaults: true
+node-label:
+  - "node.kubernetes.io/ingress=true"
+kubelet-arg: ["streaming-connection-idle-timeout=5m", "make-iptables-util-chains=true"]

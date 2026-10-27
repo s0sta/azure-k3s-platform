@@ -1,0 +1,21 @@
+---
+- name: Harden all nodes
+  hosts: k3s
+  become: true
+  roles: [hardening]
+
+- name: Install the k3s server
+  hosts: k3s_server
+  become: true
+  roles: [{ role: k3s, k3s_role: server }]
+
+- name: Join the k3s agents
+  hosts: k3s_agent
+  become: true
+  serial: 1
+  roles: [{ role: k3s, k3s_role: agent }]
+
+- name: Install the platform (cert-manager, monitoring, logging)
+  hosts: k3s_server
+  become: true
+  roles: [platform]

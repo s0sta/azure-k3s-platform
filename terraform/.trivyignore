@@ -1,0 +1,4 @@
+# Accepted findings, each with a reason.
+# AVD-AZU-0013: Key Vault network ACL "Allow" — the lab VMs read one secret over the public endpoint with
+#               their managed identity; production: private endpoint + default_action = "Deny".
+AVD-AZU-0013

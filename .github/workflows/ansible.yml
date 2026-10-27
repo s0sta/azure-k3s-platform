@@ -1,0 +1,22 @@
+name: ansible
+on:
+  pull_request:
+    paths: ["ansible/**", ".github/workflows/ansible.yml"]
+  push:
+    branches: [main]
+    paths: ["ansible/**", ".github/workflows/ansible.yml"]
+permissions: { contents: read }
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: ansible } }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with: { python-version: "3.12" }
+      - run: pip install ansible-core==2.17.5 ansible-lint==24.10.0 yamllint==1.35.1
+      - run: ansible-galaxy collection install -r requirements.yml
+      - run: cp inventory/hosts.ini.example inventory/hosts.ini
+      - run: yamllint .
+      - run: ansible-playbook --syntax-check playbooks/site.yml
+      - run: ansible-lint --profile production playbooks/site.yml

@@ -1,0 +1,18 @@
+#cloud-config
+# First boot only: patch, basic tools, no root login. Hardening and k3s come from Ansible.
+package_update: true
+package_upgrade: true
+packages: [curl, jq, auditd, fail2ban, unattended-upgrades, python3]
+ssh_pwauth: false
+disable_root: true
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-cloud-init.conf
+    permissions: "0600"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      AllowUsers ${admin_username}
+runcmd:
+  - systemctl restart ssh
+  - hostnamectl set-hostname "$(hostname)"
+  - echo "k3s-role=${role}" > /etc/k3s-role

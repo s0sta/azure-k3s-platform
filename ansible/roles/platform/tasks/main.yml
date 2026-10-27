@@ -1,0 +1,61 @@
+---
+- name: Install Helm {{ platform_helm_version }}
+  ansible.builtin.unarchive:
+    src: "https://get.helm.sh/helm-{{ platform_helm_version }}-linux-amd64.tar.gz"
+    dest: /usr/local/bin
+    remote_src: true
+    extra_opts: [--strip-components=1, --wildcards, "*/helm"]
+    creates: /usr/local/bin/helm
+
+- name: Namespaces
+  ansible.builtin.command: k3s kubectl create namespace {{ item }}
+  loop: [cert-manager, monitoring, logging]
+  register: ns
+  changed_when: ns.rc == 0
+  failed_when: ns.rc != 0 and 'AlreadyExists' not in ns.stderr
+
+- name: Grafana admin password (random, stays in the cluster)
+  ansible.builtin.shell: |
+    set -o pipefail
+    k3s kubectl -n monitoring get secret {{ grafana_admin_secret }} >/dev/null 2>&1 && exit 0
+    k3s kubectl -n monitoring create secret generic {{ grafana_admin_secret }} \
+      --from-literal=admin-user=admin --from-literal=admin-password="$(openssl rand -base64 24)"
+    echo created
+  args: { executable: /bin/bash }
+  register: grafana_secret
+  changed_when: "'created' in grafana_secret.stdout"
+
+- name: Folder for Helm values
+  ansible.builtin.file: { path: /opt/platform, state: directory, mode: "0700" }
+
+- name: Copy Helm values and alert rules
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/opt/platform/{{ item }}"
+    mode: "0600"
+  loop: [values-monitoring.yaml, values-loki.yaml, values-fluent-bit.yaml, alerts.yaml]
+
+- name: Helm charts
+  kubernetes.core.helm:
+    name: "{{ item.release }}"
+    chart_ref: "{{ charts[item.key].name }}"
+    chart_repo_url: "{{ charts[item.key].repo }}"
+    chart_version: "{{ charts[item.key].version }}"
+    release_namespace: "{{ item.ns }}"
+    values_files: "{{ item.values }}"
+    set_values: "{{ item.set | default([]) }}"
+    kubeconfig: "{{ platform_kubeconfig }}"
+    atomic: true
+    wait: true
+    timeout: 10m0s
+  loop:
+    - { key: cert_manager, release: cert-manager, ns: cert-manager, values: [], set: [{ value: crds.enabled=true }] }
+    - { key: kube_prometheus_stack, release: monitoring, ns: monitoring, values: [/opt/platform/values-monitoring.yaml] }
+    - { key: loki, release: loki, ns: logging, values: [/opt/platform/values-loki.yaml] }
+    - { key: fluent_bit, release: fluent-bit, ns: logging, values: [/opt/platform/values-fluent-bit.yaml] }
+  loop_control: { label: "{{ item.release }}" }
+
+- name: Platform alert rules
+  ansible.builtin.command: k3s kubectl apply -f /opt/platform/alerts.yaml
+  register: alerts
+  changed_when: "'configured' in alerts.stdout or 'created' in alerts.stdout"

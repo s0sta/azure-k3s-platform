@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: nodes
+      rules:
+        - alert: NodeDown
+          expr: up{job="node-exporter"} == 0
+          for: 2m
+          labels: { severity: critical }
+          annotations: { summary: "Node {{ $labels.instance }} is down" }
+        - alert: DiskAlmostFull
+          expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes) < 0.15
+          for: 10m
+          labels: { severity: warning }
+          annotations: { summary: "Less than 15 % disk left on {{ $labels.instance }} {{ $labels.mountpoint }}" }
+        - alert: HighMemory
+          expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.9
+          for: 10m
+          labels: { severity: warning }
+    - name: workloads
+      rules:
+        - alert: PodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total[15m]) > 3
+          labels: { severity: warning }
+          annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} restarts often" }
+        - alert: CertificateExpiresSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 14 * 24 * 3600
+          labels: { severity: warning }

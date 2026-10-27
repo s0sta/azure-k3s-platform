@@ -1,0 +1,16 @@
+# Terraform writes inventory/hosts.ini. This example shows the format.
+[k3s_server]
+server ansible_host=198.51.100.20 private_ip=10.40.1.10
+
+[k3s_agent]
+agent-1 ansible_host=10.40.1.20 private_ip=10.40.1.20 ansible_ssh_common_args='-o ProxyJump=azureops@198.51.100.20'
+agent-2 ansible_host=10.40.1.21 private_ip=10.40.1.21 ansible_ssh_common_args='-o ProxyJump=azureops@198.51.100.20'
+
+[k3s:children]
+k3s_server
+k3s_agent
+
+[k3s:vars]
+ansible_user=azureops
+ingress_public_ip=198.51.100.30
+key_vault_name=kv-k3s-lab-abcde
