@@ -27,8 +27,6 @@ env:
   ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-  TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
-  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
 defaults:
   run: { working-directory: terraform }
 
@@ -53,8 +51,13 @@ jobs:
   plan:
     name: Plan
     needs: checks
+    # runs once Azure is connected (repository variables AZURE_*, ADMIN_CIDRS, SSH_PUBLIC_KEY); until then the checks are enough
+    if: vars.AZURE_CLIENT_ID != ''
     runs-on: ubuntu-latest
     permissions: { contents: read, id-token: write, pull-requests: write }
+    env:
+      TF_VAR_admin_cidrs: ${{ vars.ADMIN_CIDRS }}
+      TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
