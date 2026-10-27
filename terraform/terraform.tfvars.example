@@ -6,3 +6,4 @@ ssh_public_key = "ssh-ed25519 AAAA... you@laptop"
 agent_count    = 2
 monthly_budget = 60
 budget_emails  = []                       # add your e-mail to get budget alerts
+budget_start_date = "2026-11-01T00:00:00Z" # first day of a month

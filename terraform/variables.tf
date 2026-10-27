@@ -71,6 +71,16 @@ variable "monthly_budget" {
   default     = 60
 }
 
+variable "budget_start_date" {
+  description = "First month of the budget (first day of a month, RFC 3339). Changes later are ignored."
+  type        = string
+  default     = "2026-11-01T00:00:00Z"
+  validation {
+    condition     = can(regex("^20[0-9]{2}-[01][0-9]-01T00:00:00Z$", var.budget_start_date))
+    error_message = "Use the first day of a month, like 2026-11-01T00:00:00Z."
+  }
+}
+
 variable "budget_emails" {
   description = "E-mail addresses for budget alerts (empty = no budget alerts)."
   type        = list(string)
